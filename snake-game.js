@@ -2,7 +2,7 @@ import { DIRECTIONS, createInitialState, step } from './snake-logic.js';
 
 const GRID_SIZE = 20;
 const CELL_SIZE = 20;
-const TICK_MS = 140;
+const HS_KEY = 'snake-highscore';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -10,9 +10,13 @@ canvas.width = GRID_SIZE * CELL_SIZE;
 canvas.height = GRID_SIZE * CELL_SIZE;
 
 const scoreEl = document.getElementById('score-value');
+const highscoreEl = document.getElementById('highscore-value');
 const statusEl = document.getElementById('status-value');
 const pauseBtn = document.getElementById('pause-btn');
 const restartBtn = document.getElementById('restart-btn');
+
+let highScore = parseInt(localStorage.getItem(HS_KEY) ?? '0', 10);
+highscoreEl.textContent = highScore;
 
 let state = createInitialState({ cols: GRID_SIZE, rows: GRID_SIZE });
 let isPaused = false;
@@ -47,7 +51,21 @@ function render() {
     drawCell(seg.x, seg.y, i === 0 ? '#111827' : '#374151');
   });
   scoreEl.textContent = state.score;
+  if (state.score > highScore) {
+    highScore = state.score;
+    localStorage.setItem(HS_KEY, highScore);
+    highscoreEl.textContent = highScore;
+  }
   if (state.gameOver) {
+    // Draw semi-transparent overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 16);
+    ctx.font = '20px sans-serif';
+    ctx.fillText(`Score: ${state.score}`, canvas.width / 2, canvas.height / 2 + 20);
     statusEl.textContent = 'Game Over';
   } else if (isPaused) {
     statusEl.textContent = 'Paused';
@@ -61,6 +79,8 @@ function tick() {
   state = step(state, requestedDirection ?? state.direction);
   requestedDirection = null;
   render();
+  const interval = Math.max(60, 140 - state.score * 5);
+  setTimeout(tick, interval);
 }
 
 function restart() {
@@ -69,12 +89,16 @@ function restart() {
   isPaused = false;
   pauseBtn.textContent = 'Pause';
   render();
+  setTimeout(tick, 140);
 }
 
 function togglePause() {
   if (state.gameOver) return;
   isPaused = !isPaused;
   pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+  if (!isPaused) {
+    setTimeout(tick, Math.max(60, 140 - state.score * 5));
+  }
   render();
 }
 
@@ -115,5 +139,5 @@ document.querySelectorAll('[data-dir]').forEach((btn) => {
 pauseBtn.addEventListener('click', togglePause);
 restartBtn.addEventListener('click', restart);
 
-setInterval(tick, TICK_MS);
+setTimeout(tick, 140);
 render();
